@@ -1,12 +1,14 @@
 <?php
 
-use Illuminate\Support\Str;
+use App\Models\Product;
 
-if (!function_exists('generateProductCode')) {
-  function generateProductCode(): string
-  {
-    $year = now()->year;
-    $suffix = strtoupper(Str::random(4));
-    return "PRD-{$year}-{$suffix}";
-  }
+if (! function_exists('generateProductCode')) {
+    function generateProductCode(): string
+    {
+        do {
+            $code = sprintf('PRD-%s-%04d', now()->format('Y'), random_int(0, 9999));
+        } while (Product::where('code', $code)->exists());
+
+        return $code;
+    }
 }

@@ -2,29 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class Product extends Model
 {
-  use HasFactory;
+    protected $fillable = [
+        'user_id', 'code', 'name', 'description', 'price', 'status', 'approved_at'
+    ];
 
-  protected $fillable = [
-    'name',
-    'description',
-    'price',
-    'status',
-    'code',
-    'user_id',
-  ];
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
-  protected $casts = [
-    'price' => 'decimal:2',
-  ];
-
-  public function vendor(): BelongsTo
-  {
-    return $this->belongsTo(User::class, 'user_id');
-  }
+    public function scopeMine($query, User $user)
+    {
+        return $query->where('user_id', $user->id);
+    } 
 }

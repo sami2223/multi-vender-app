@@ -5,84 +5,60 @@ namespace App\Services;
 use App\Events\ProductCreated;
 use App\Models\Product;
 use App\Models\User;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
+use App\Repositories\ProductRepository;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ProductService
 {
-  public function listForVendor(User $vendor): LengthAwarePaginator
-  {
-    return Product::query()
-      ->where('user_id', $vendor->id)
-      ->orderByDesc('id')
-      ->paginate(10);
-  }
+    public function __construct(private ProductRepository $repo) {}
 
-  public function listPending(): LengthAwarePaginator
-  {
-    return Product::query()
-      ->where('status', 'pending')
-      ->orderBy('created_at')
-      ->paginate(10);
-  }
+    public function create(User $vendor, array $data): Product
+    {
+        if ($vendor->role !== 'vendor') {
+            throw ValidationException::withMessages(['user' => 'Only vendors can create products.']);
+        }
 
-  public function createForVendor(User $vendor, array $data): Product
-  {
-    return DB::transaction(function () use ($vendor, $data) {
-      $product = new Product();
-      $product->fill([
-        'name' => $data['name'],
-        'description' => $data['description'] ?? null,
-        'price' => $data['price'],
-        'code' => generateProductCode(),
-        'status' => 'pending',
-      ]);
-      $product->user_id = $vendor->id;
-      $product->save();
+        return DB::transaction(function () use ($vendor, $data) {
+            $product = $this->repo->create([
+                'user_id' => $vendor->id,
+                'code' => generateProductCode(),
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'price' => $data['price'] ?? 0,
+                'status' => 'pending',
+            ]);
 
-      event(new ProductCreated($product));
-
-      return $product;
-    });
-  }
-
-  public function updateForVendor(User $vendor, Product $product, array $data): Product
-  {
-    if ($product->user_id !== $vendor->id) {
-      abort(403);
+            ProductCreated::dispatch($product);
+            return $product;
+        });
     }
 
-    $product->fill([
-      'name' => $data['name'] ?? $product->name,
-      'description' => $data['description'] ?? $product->description,
-      'price' => $data['price'] ?? $product->price,
-    ]);
-    $product->status = 'pending';
-    $product->save();
-
-    return $product;
-  }
-
-  public function deleteForVendor(User $vendor, Product $product): void
-  {
-    if ($product->user_id !== $vendor->id) {
-      abort(403);
+    public function update(User $user, Product $product, array $data): Product
+    {
+        if (!($user->role === 'admin' || $product->user_id === $user->id)) {
+            abort(403);
+        }
+        $this->repo->update($product, $data);
+        return $product->refresh();
     }
-    $product->delete();
-  }
 
-  public function approve(Product $product): Product
-  {
-    $product->status = 'approved';
-    $product->save();
-    return $product;
-  }
+    public function delete(User $user, Product $product): void
+    {
+        if (!($user->role === 'admin' || $product->user_id === $user->id)) {
+            abort(403);
+        }
+        $this->repo->delete($product);
+    }
 
-  public function reject(Product $product): Product
-  {
-    $product->status = 'rejected';
-    $product->save();
-    return $product;
-  }
+    public function setApproval(User $admin, Product $product, bool $approve): Product
+    {
+        if ($admin->role !== 'admin') {
+            abort(403);
+        }
+        $product->status = $approve ? 'approved' : 'rejected';
+        $product->approved_at = $approve ? now() : null;
+        $product->save();
+        return $product;
+    }
 }

@@ -2,51 +2,49 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
 use App\Services\ProductService;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-  public function __construct(private ProductService $service) {}
+    public function __construct(private ProductService $service) {}
 
-  public function index(Request $request): View
-  {
-    $products = $this->service->listForVendor($request->user());
-    return view('products.index', compact('products'));
-  }
+    public function index()
+    {
+        $products = Product::mine(auth()->user())->latest()->paginate(10);
+        return view('products.index', compact('products'));
+    }
 
-  public function store(Request $request): RedirectResponse
-  {
-    $validated = $request->validate([
-      'name' => ['required', 'string', 'max:255'],
-      'description' => ['nullable', 'string'],
-      'price' => ['required', 'numeric', 'min:0'],
-    ]);
+    public function create()
+    {
+        return view('products.create');
+    }
 
-    $this->service->createForVendor($request->user(), $validated);
+    public function store(StoreProductRequest $request)
+    {
+        $this->service->create(auth()->user(), $request->validated());
+        return redirect()->route('products.index')->with('status', 'Product submitted for approval.');
+    }
 
-    return back()->with('status', 'Product created and pending approval.');
-  }
+    public function edit(Product $product)
+    {
+        $this->authorize('update', $product);
+        return view('products.edit', compact('product'));
+    }
 
-  public function update(Request $request, Product $product): RedirectResponse
-  {
-    $validated = $request->validate([
-      'name' => ['sometimes', 'string', 'max:255'],
-      'description' => ['nullable', 'string'],
-      'price' => ['sometimes', 'numeric', 'min:0'],
-    ]);
+    public function update(UpdateProductRequest $request, Product $product)
+    {
+        $this->authorize('update', $product);
+        $this->service->update(auth()->user(), $product, $request->validated());
+        return back()->with('status', 'Updated.');
+    }
 
-    $this->service->updateForVendor($request->user(), $product, $validated);
-
-    return back()->with('status', 'Product updated and pending approval.');
-  }
-
-  public function destroy(Request $request, Product $product): RedirectResponse
-  {
-    $this->service->deleteForVendor($request->user(), $product);
-    return back()->with('status', 'Product deleted.');
-  }
+    public function destroy(Product $product)
+    {
+        $this->authorize('delete', $product);
+        $this->service->delete(auth()->user(), $product);
+        return back()->with('status', 'Deleted.');
+    }
 }
