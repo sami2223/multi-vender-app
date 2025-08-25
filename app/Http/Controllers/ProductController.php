@@ -48,3 +48,4 @@ class ProductController extends Controller
         return back()->with('status', 'Deleted.');
     }
 }
+

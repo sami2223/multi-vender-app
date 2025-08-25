@@ -12,3 +12,4 @@ if (! function_exists('generateProductCode')) {
         return $code;
     }
 }
+

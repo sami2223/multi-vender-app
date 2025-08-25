@@ -25,3 +25,4 @@ class ProductFactory extends Factory
     ];
   }
 }
+

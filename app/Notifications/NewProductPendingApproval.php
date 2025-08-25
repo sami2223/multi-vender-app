@@ -30,3 +30,4 @@ class NewProductPendingApproval extends Notification implements ShouldQueue
             ->line('Thanks!');
     }
 }
+

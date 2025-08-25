@@ -32,3 +32,4 @@ class ProductPolicy
         return $user->role === 'admin' || $product->user_id === $user->id;
     }
 }
+

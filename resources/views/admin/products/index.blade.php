@@ -37,3 +37,4 @@
     </table>
     {{ $products->links() }}
 </x-app-layout>
+
